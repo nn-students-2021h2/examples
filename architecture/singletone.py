@@ -1,6 +1,6 @@
 """Test singleton"""
 
-# pylint: disable=missing-function-docstring, missing-class-docstring, too-few-public-methods
+# pylint: disable=missing-function-docstring,missing-class-docstring,too-few-public-methods
 
 
 def func(param):
@@ -21,6 +21,26 @@ def func2(param):
     if not hasattr(func2, "foo"):
         func2.foo = param
     print("func2:", func2.foo)
+
+
+class SingleVar:
+    def __init__(self, foo_value=None):
+        print("SingleVar: init")
+        self._foo = foo_value or "foo"
+
+    @property
+    def foo(self):
+        return self._foo
+
+    @foo.setter
+    def foo(self, value):
+        self._foo = value
+
+
+SINGLE_VAR = SingleVar()
+
+SINGLE_VAR.foo = 1
+print("SingleVar.foo:", SINGLE_VAR, SINGLE_VAR.foo)
 
 
 class SingleInit:
@@ -62,6 +82,7 @@ class SingleState:
         SingleState._foo = value
 
 
+# Auto-magically covers inheritances
 class MetaSingleton(type):
     _instances = {}
 
@@ -74,6 +95,33 @@ class MetaSingleton(type):
 class SingleMeta(metaclass=MetaSingleton):
     def __init__(self, foo_value=None):
         print("SingleMeta: init")
+        self._foo = foo_value or "foo"
+
+    @property
+    def foo(self):
+        return self._foo
+
+    @foo.setter
+    def foo(self, value):
+        self._foo = value
+
+
+def singleton_decor(class_def):
+    instances = {}
+
+    def get_instance(*args, **kwargs):
+        if class_def not in instances:
+            instances[class_def] = class_def(*args, **kwargs)
+        return instances[class_def]
+
+    return get_instance
+
+
+# It is a function (not a class), so you cannot call class methods from it
+@singleton_decor
+class SingleDecor:
+    def __init__(self, foo_value=None):
+        print("SingleDecor: init")
         self._foo = foo_value or "foo"
 
     @property
@@ -116,6 +164,7 @@ class StaticClass:
     def foo(cls):
         return cls._foo
 
+    # Mistake
     @property
     def foo_prop(cls):
         return cls._foo
@@ -133,6 +182,8 @@ def _test_singleton(class_def):
 
 def _test():
     """Test and debug"""
+    print()
+
     func2(1)
     func2(2)
     func2.foo = 3
@@ -141,6 +192,7 @@ def _test():
     _test_singleton(SingleInit)
     _test_singleton(SingleState)
     _test_singleton(SingleMeta)
+    _test_singleton(SingleDecor)
 
     # Wrong
     _test_singleton(SingleFactory)
@@ -159,86 +211,94 @@ if __name__ == "__main__":
     _test()
 
 r"""
-examples>python singletone.py
+>python singletone.py
 func: 1
 func: 1
 func: 3
+SingleVar: init
+SingleVar.foo: <__main__.SingleVar object at 0x00000201E40028E0> 1
+
 func2: 1
 func2: 1
 func2: 3
 
 SingleInit: init
-<class '__main__.SingleInit'>_1.foo: <__main__.SingleInit object at 0x000001EA0AB21BE0> foo
-<class '__main__.SingleInit'>_1.foo: <__main__.SingleInit object at 0x000001EA0AB21BE0> 1
+<class '__main__.SingleInit'>_1.foo: <__main__.SingleInit object at 0x00000201E4521D00> foo
+<class '__main__.SingleInit'>_1.foo: <__main__.SingleInit object at 0x00000201E4521D00> 1
 SingleInit: init
-<class '__main__.SingleInit'>_2.foo: <__main__.SingleInit object at 0x000001EA0AB21BE0> 1
+<class '__main__.SingleInit'>_2.foo: <__main__.SingleInit object at 0x00000201E4521D00> 1
 
 SingleState: init
-<class '__main__.SingleState'>_1.foo: <__main__.SingleState object at 0x000001EA0AB21C10> foo
-<class '__main__.SingleState'>_1.foo: <__main__.SingleState object at 0x000001EA0AB21C10> 1
+<class '__main__.SingleState'>_1.foo: <__main__.SingleState object at 0x00000201E4547070> foo
+<class '__main__.SingleState'>_1.foo: <__main__.SingleState object at 0x00000201E4547070> 1
 SingleState: init
-<class '__main__.SingleState'>_2.foo: <__main__.SingleState object at 0x000001EA0AB21C40> 1
+<class '__main__.SingleState'>_2.foo: <__main__.SingleState object at 0x00000201E45470A0> 1
 
 SingleMeta: init
-<class '__main__.SingleMeta'>_1.foo: <__main__.SingleMeta object at 0x000001EA0AB21C10> foo
-<class '__main__.SingleMeta'>_1.foo: <__main__.SingleMeta object at 0x000001EA0AB21C10> 1
-<class '__main__.SingleMeta'>_2.foo: <__main__.SingleMeta object at 0x000001EA0AB21C10> 1
+<class '__main__.SingleMeta'>_1.foo: <__main__.SingleMeta object at 0x00000201E4547070> foo
+<class '__main__.SingleMeta'>_1.foo: <__main__.SingleMeta object at 0x00000201E4547070> 1
+<class '__main__.SingleMeta'>_2.foo: <__main__.SingleMeta object at 0x00000201E4547070> 1
+
+SingleDecor: init
+<function singleton_decor.<locals>.get_instance at 0x00000201E452BC10>_1.foo: <__main__.SingleDecor object at 0x00000201E45470A0> foo
+<function singleton_decor.<locals>.get_instance at 0x00000201E452BC10>_1.foo: <__main__.SingleDecor object at 0x00000201E45470A0> 1
+<function singleton_decor.<locals>.get_instance at 0x00000201E452BC10>_2.foo: <__main__.SingleDecor object at 0x00000201E45470A0> 1
 
 SingleFactory: init
-<class '__main__.SingleFactory'>_1.foo: <__main__.SingleFactory object at 0x000001EA0AB21C40> foo
-<class '__main__.SingleFactory'>_1.foo: <__main__.SingleFactory object at 0x000001EA0AB21C40> 1
+<class '__main__.SingleFactory'>_1.foo: <__main__.SingleFactory object at 0x00000201E4547130> foo
+<class '__main__.SingleFactory'>_1.foo: <__main__.SingleFactory object at 0x00000201E4547130> 1
 SingleFactory: init
-<class '__main__.SingleFactory'>_2.foo: <__main__.SingleFactory object at 0x000001EA0AB21CD0> foo
+<class '__main__.SingleFactory'>_2.foo: <__main__.SingleFactory object at 0x00000201E4547190> foo
 
-<class '__main__.StaticClass'>_1.foo: <__main__.StaticClass object at 0x000001EA0AB21CD0> <bound method StaticClass.foo of <class '__main__.StaticClass'>>
-<class '__main__.StaticClass'>_1.foo: <__main__.StaticClass object at 0x000001EA0AB21CD0> 1
-<class '__main__.StaticClass'>_2.foo: <__main__.StaticClass object at 0x000001EA0AB21C40> <bound method StaticClass.foo of <class '__main__.StaticClass'>>
+<class '__main__.StaticClass'>_1.foo: <__main__.StaticClass object at 0x00000201E4547190> <bound method StaticClass.foo of <class '__main__.StaticClass'>>
+<class '__main__.StaticClass'>_1.foo: <__main__.StaticClass object at 0x00000201E4547190> 1
+<class '__main__.StaticClass'>_2.foo: <__main__.StaticClass object at 0x00000201E4547130> <bound method StaticClass.foo of <class '__main__.StaticClass'>>
 
 SingleFactory: init
 SingleFactory.foo: 1
 
-StaticClass.foo: 1 <property object at 0x000001EA0AB2CE50>
+StaticClass.foo: 1 <property object at 0x00000201E4530220>
 """
 
 
 r"""
-"examples\singletone.py"
 pylint
 ************* Module singletone
-examples\singletone.py:120:4: E0213: Method should have "self" as first argument (no-self-argument)
+examples\architecture\singletone.py:169:4: E0213: Method should have "self" as first argument (no-self-argument)
 ************* Module singletone
-examples\singletone.py:208:0: C0301: Line too long (120/100) (line-too-long)
-examples\singletone.py:229:0: C0301: Line too long (120/100) (line-too-long)
-examples\singletone.py:230:0: C0301: Line too long (128/100) (line-too-long)
-examples\singletone.py:231:0: C0301: Line too long (117/100) (line-too-long)
-examples\singletone.py:232:0: C0301: Line too long (117/100) (line-too-long)
-examples\singletone.py:40:4: C0104: Disallowed name "foo" (disallowed-name)
-examples\singletone.py:44:4: C0104: Disallowed name "foo" (disallowed-name)
-examples\singletone.py:57:4: C0104: Disallowed name "foo" (disallowed-name)
-examples\singletone.py:61:4: C0104: Disallowed name "foo" (disallowed-name)
-examples\singletone.py:61:4: R0201: Method could be a function (no-self-use)
-examples\singletone.py:80:4: C0104: Disallowed name "foo" (disallowed-name)
-examples\singletone.py:84:4: C0104: Disallowed name "foo" (disallowed-name)
-examples\singletone.py:103:4: C0104: Disallowed name "foo" (disallowed-name)
-examples\singletone.py:107:4: C0104: Disallowed name "foo" (disallowed-name)
-examples\singletone.py:116:4: C0104: Disallowed name "foo" (disallowed-name)
-examples\singletone.py:120:4: E0213: Method should have "self" as first argument (no-self-argument)
-examples\singletone.py:154:4: W0212: Access to a protected member _foo of a client class (protected-access)
-examples\singletone.py:161:0: W0105: String statement has no effect (pointless-string-statement)
-examples\singletone.py:204:0: W0105: String statement has no effect (pointless-string-statement)
+examples\architecture\singletone.py:271:0: C0301: Line too long (110/100) (line-too-long)
+examples\architecture\singletone.py:272:0: C0301: Line too long (151/100) (line-too-long)
+examples\architecture\singletone.py:42:0: C0104: Disallowed name "foo" (disallowed-name)
+examples\architecture\singletone.py:32:4: C0104: Disallowed name "foo" (disallowed-name)
+examples\architecture\singletone.py:36:4: C0104: Disallowed name "foo" (disallowed-name)
+examples\architecture\singletone.py:60:4: C0104: Disallowed name "foo" (disallowed-name)
+examples\architecture\singletone.py:64:4: C0104: Disallowed name "foo" (disallowed-name)
+examples\architecture\singletone.py:77:4: C0104: Disallowed name "foo" (disallowed-name)
+examples\architecture\singletone.py:81:4: C0104: Disallowed name "foo" (disallowed-name)
+examples\architecture\singletone.py:81:4: R0201: Method could be a function (no-self-use)
+examples\architecture\singletone.py:101:4: C0104: Disallowed name "foo" (disallowed-name)
+examples\architecture\singletone.py:105:4: C0104: Disallowed name "foo" (disallowed-name)
+examples\architecture\singletone.py:128:4: C0104: Disallowed name "foo" (disallowed-name)
+examples\architecture\singletone.py:132:4: C0104: Disallowed name "foo" (disallowed-name)
+examples\architecture\singletone.py:151:4: C0104: Disallowed name "foo" (disallowed-name)
+examples\architecture\singletone.py:155:4: C0104: Disallowed name "foo" (disallowed-name)
+examples\architecture\singletone.py:164:4: C0104: Disallowed name "foo" (disallowed-name)
+examples\architecture\singletone.py:169:4: E0213: Method should have "self" as first argument (no-self-argument)
+examples\architecture\singletone.py:206:4: W0212: Access to a protected member _foo of a client class (protected-access)
+examples\architecture\singletone.py:213:0: W0105: String statement has no effect (pointless-string-statement)
+examples\architecture\singletone.py:264:0: W0105: String statement has no effect (pointless-string-statement)
+examples\architecture\singletone.py:269:0: W0105: String statement has no effect (pointless-string-statement)
 
 ------------------------------------------------------------------
-Your code has been rated at 7.70/10 (previous run: 7.30/10, +0.40)
+Your code has been rated at 7.98/10 (previous run: 7.70/10, +0.28)
 
 Exit code: 30
-Press any key to continue . . .
 """
 
 
 r"""
 mypy
-examples\singletone.py:16: error: "Callable[[Any], Any]" has no attribute "foo"
-examples\singletone.py:66: error: Need type annotation for '_instances' (hint: "_instances: Dict[<type>, <type>] = ...")
+examples\architecture\singletone.py:16: error: "Callable[[Any], Any]" has no attribute "foo"
+examples\architecture\singletone.py:87: error: Need type annotation for '_instances' (hint: "_instances: Dict[<type>, <type>] = ...")
 Found 2 errors in 1 file (checked 1 source file)
-Press any key to continue . . .
 """
