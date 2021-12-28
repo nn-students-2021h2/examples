@@ -2,6 +2,7 @@
 
 # pylint: disable=missing-function-docstring,missing-class-docstring,too-few-public-methods
 
+import copy
 import timeit
 
 
@@ -10,6 +11,9 @@ import timeit
 # - Enclosing (or nonlocal) scope
 # - Global (or module) scope
 # - Built-in scope
+
+# https://docs.python.org/3.9/faq/programming.html#core-language
+
 
 GLOBAL_VAR1 = []
 GLOBAL_VAR2 = 1
@@ -20,27 +24,71 @@ def func_legb(param: list):
     GLOBAL_VAR2 = 2
 
     param += [1]
-    print("func_legb param:", param)
+    print("func_legb param += [1]:", param)
 
     param = param + [2]
-    print("func_legb param:", param)
+    print("func_legb param + [2]:", param)
 
-    local_var = 1
+    local_var = []
 
-    def embedded_func_legb():
-        local_var = 2
-        print("embedded_func_legb local_var:", local_var)
+    def embedded_func_legb1():
+        print("embedded_func_legb1 start local_var:", local_var)
+        local_var.append(1)
+        print("embedded_func_legb1 end local_var:", local_var)
 
-    embedded_func_legb()
+    embedded_func_legb1()
     print("func_legb local_var:", local_var)
+
+    def embedded_func_legb2():
+        print("embedded_func_legb2 start local_var:", local_var)
+        local_var += [2]
+        print("embedded_func_legb2 end local_var:", local_var)
+
+    # embedded_func_legb2()
+
+
+#   Traceback (most recent call last):
+#     File "mistakes.py", line 47, in func_legb
+#       embedded_func_legb2()
+#     File "mistakes.py", line 43, in embedded_func_legb2
+#       print("embedded_func_legb2 start local_var:", local_var)
+#   UnboundLocalError: local variable 'local_var' referenced before assignment
 
 
 def legb_test():
     param = [0]
     func_legb(param)
-    print("param:", param)
+    print("legb_test param:", param)
     print("GLOBAL_VAR1:", GLOBAL_VAR1)
     print("GLOBAL_VAR2:", GLOBAL_VAR2)
+
+
+def mutable_test():
+    print()
+    a = [1]
+    b = a
+    b.append(2)
+    print("mutable_test list a b:", a, b)
+
+    x = 1
+    y = x
+    y += 1
+    print("mutable_test int x y:", x, y)
+
+    a = [1]
+    b = a[:]  # a.copy()
+    b.append(2)
+    print("mutable_test list copy a b:", a, b)
+
+    a = {1: [1]}
+    b = a.copy()
+    a[1].append(2)
+    print("mutable_test dict copy a b:", a, b)
+
+    a = {1: [1]}
+    b = copy.deepcopy(a)
+    a[1].append(2)
+    print("mutable_test dict deepcopy a b:", a, b)
 
 
 class A:
@@ -182,8 +230,10 @@ def dict_key_test():
 def _test():
     """Test and debug"""
     legb_test()
+    mutable_test()
     abc_test()
     default_arg_test()
+    is_equal_test()
     if_test()
     str_test()
     dict_key_test()
@@ -193,15 +243,24 @@ if __name__ == "__main__":
     _test()
 
 
+# pylint: disable=line-too-long,pointless-string-statement
+
 r"""
 >python mistakes.py
-func_legb param: [0, 1]
-func_legb param: [0, 1, 2]
-embedded_func_legb local_var: 2
-func_legb local_var: 1
-param: [0, 1]
+func_legb param += [1]: [0, 1]
+func_legb param + [2]: [0, 1, 2]
+embedded_func_legb1 start local_var: []
+embedded_func_legb1 end local_var: [1]
+func_legb local_var: [1]
+legb_test param: [0, 1]
 GLOBAL_VAR1: [1]
 GLOBAL_VAR2: 1
+
+mutable_test list a b: [1, 2] [1, 2]
+mutable_test int x y: 1 2
+mutable_test list copy a b: [1] [1, 2]
+mutable_test dict copy a b: {1: [1, 2]} {1: [1, 2]}
+mutable_test dict deepcopy a b: {1: [1, 2]} {1: [1]}
 
 ABC: 1 1 1
 ABC: 1 2 1
@@ -216,19 +275,25 @@ func_default_arg2 1: ['foo']
 func_default_arg1 2: ['foo', 'foo', 'foo']
 func_default_arg2 2: ['foo']
 
-<function if_is at 0x0000019CD38ABCA0> (None,) {} - exec time: 0.3528536
-<function if_equal at 0x0000019CD38ABDC0> (None,) {} - exec time: 0.46298069999999997
-<function if_none at 0x0000019CD38ABEE0> (None,) {} - exec time: 0.3462565000000001
+is_equal [] == []: True
+is_equal [] is []: False
 
-<function if_is at 0x0000019CD38ABCA0> ([],) {} - exec time: 0.3941026000000001
-<function if_equal at 0x0000019CD38ABDC0> ([],) {} - exec time: 0.48714579999999996
-<function if_none at 0x0000019CD38ABEE0> ([],) {} - exec time: 0.34770999999999974
+is_equal [1] == [1]: True
+is_equal [1] is [1]: False
 
-<function func_str1 at 0x0000019CD38CD0D0> (100,) {} - exec time: 0.005604799999999965
-<function func_str2 at 0x0000019CD38CD1F0> (100,) {} - exec time: 0.0019881999999999955
+<function if_is at 0x000001B3D4DDE0D0> (None,) {} - exec time: 0.3433525
+<function if_equal at 0x000001B3D4DDE1F0> (None,) {} - exec time: 0.3669428
+<function if_none at 0x000001B3D4DDE310> (None,) {} - exec time: 0.24501839999999997
 
-<function func_str1 at 0x0000019CD38CD0D0> (1000,) {} - exec time: 3.9186127
-<function func_str2 at 0x0000019CD38CD1F0> (1000,) {} - exec time: 0.004958799999999819
+<function if_is at 0x000001B3D4DDE0D0> ([],) {} - exec time: 0.31276669999999995
+<function if_equal at 0x000001B3D4DDE1F0> ([],) {} - exec time: 0.3963250999999999
+<function if_none at 0x000001B3D4DDE310> ([],) {} - exec time: 0.2756681000000001
+
+<function func_str1 at 0x000001B3D4DDE4C0> (100,) {} - exec time: 0.0027449999999999974
+<function func_str2 at 0x000001B3D4DDE5E0> (100,) {} - exec time: 0.0011468000000001144
+
+<function func_str1 at 0x000001B3D4DDE4C0> (1000,) {} - exec time: 3.3518665000000003
+<function func_str2 at 0x000001B3D4DDE5E0> (1000,) {} - exec time: 0.004182799999999709
 
 dict_key(1): {1: 1}
 dict_key(1): {'1': 1}
@@ -236,8 +301,8 @@ dict_key((1,)): {(1,): 1}
 dict_key(True): {True: 1}
 dict_key([1]): unhashable type: 'list'
 dict_key({1: 1}): unhashable type: 'dict'
-dict_key(<function dict_key_test at 0x0000019CD38CD430>): {<function dict_key_test at 0x0000019CD38CD430>: 1}
-dict_key(<__main__.A object at 0x0000019CD38CB220>): {<__main__.A object at 0x0000019CD38CB220>: 1}
+dict_key(<function dict_key_test at 0x000001B3D4DDE820>): {<function dict_key_test at 0x000001B3D4DDE820>: 1}
+dict_key(<__main__.A object at 0x000001B3D4DCAFD0>): {<__main__.A object at 0x000001B3D4DCAFD0>: 1}
 dict_key(<class '__main__.A'>): {<class '__main__.A'>: 1}
 """
 
@@ -245,44 +310,48 @@ dict_key(<class '__main__.A'>): {<class '__main__.A'>: 1}
 r"""
 pylint
 ************* Module mistakes
-examples\architecture\mistakes.py:257:0: C0301: Line too long (126/100) (line-too-long)
-examples\architecture\mistakes.py:258:0: C0301: Line too long (132/100) (line-too-long)
-examples\architecture\mistakes.py:260:0: C0301: Line too long (119/100) (line-too-long)
-examples\architecture\mistakes.py:262:0: C0301: Line too long (119/100) (line-too-long)
-examples\architecture\mistakes.py:263:0: C0301: Line too long (119/100) (line-too-long)
-examples\architecture\mistakes.py:264:0: C0301: Line too long (111/100) (line-too-long)
-examples\architecture\mistakes.py:269:0: C0301: Line too long (107/100) (line-too-long)
-examples\architecture\mistakes.py:270:0: C0301: Line too long (107/100) (line-too-long)
-examples\architecture\mistakes.py:271:0: C0301: Line too long (107/100) (line-too-long)
-examples\architecture\mistakes.py:20:4: W0621: Redefining name 'GLOBAL_VAR2' from outer scope (line 15) (redefined-outer-name)
-examples\architecture\mistakes.py:20:4: C0103: Variable name "GLOBAL_VAR2" doesn't conform to snake_case naming style (invalid-name)
-examples\architecture\mistakes.py:20:4: W0612: Unused variable 'GLOBAL_VAR2' (unused-variable)
-examples\architecture\mistakes.py:46:0: C0103: Class name "A" doesn't conform to PascalCase naming style (invalid-name)
-examples\architecture\mistakes.py:47:4: C0104: Disallowed name "foo" (disallowed-name)
-examples\architecture\mistakes.py:50:0: C0103: Class name "B" doesn't conform to PascalCase naming style (invalid-name)
-examples\architecture\mistakes.py:54:0: C0103: Class name "C" doesn't conform to PascalCase naming style (invalid-name)
-examples\architecture\mistakes.py:66:0: W0102: Dangerous default value [] as argument (dangerous-default-value)
-examples\architecture\mistakes.py:66:0: C0104: Disallowed name "foo" (disallowed-name)
-examples\architecture\mistakes.py:71:0: C0104: Disallowed name "foo" (disallowed-name)
-examples\architecture\mistakes.py:85:8: C0103: Variable name "a" doesn't conform to snake_case naming style (invalid-name)
-examples\architecture\mistakes.py:85:11: C0103: Variable name "b" doesn't conform to snake_case naming style (invalid-name)
-examples\architecture\mistakes.py:101:0: C0104: Disallowed name "foo" (disallowed-name)
-examples\architecture\mistakes.py:108:0: C0104: Disallowed name "foo" (disallowed-name)
-examples\architecture\mistakes.py:110:11: C0121: Comparison 'foo == None' should be 'foo is None' (singleton-comparison)
-examples\architecture\mistakes.py:115:0: C0104: Disallowed name "foo" (disallowed-name)
-examples\architecture\mistakes.py:165:11: W0703: Catching too general exception Exception (broad-except)
-examples\architecture\mistakes.py:196:0: W0105: String statement has no effect (pointless-string-statement)
-examples\architecture\mistakes.py:245:0: W0105: String statement has no effect (pointless-string-statement)
-examples\architecture\mistakes.py:280:0: W0105: String statement has no effect (pointless-string-statement)
+examples\architecture\mistakes.py:43:54: E0601: Using variable 'local_var' before assignment (used-before-assignment)
+************* Module mistakes
+examples\architecture\mistakes.py:24:4: W0621: Redefining name 'GLOBAL_VAR2' from outer scope (line 19) (redefined-outer-name)
+examples\architecture\mistakes.py:24:4: C0103: Variable name "GLOBAL_VAR2" doesn't conform to snake_case naming style (invalid-name)
+examples\architecture\mistakes.py:43:54: E0601: Using variable 'local_var' before assignment (used-before-assignment)
+examples\architecture\mistakes.py:24:4: W0612: Unused variable 'GLOBAL_VAR2' (unused-variable)
+examples\architecture\mistakes.py:42:4: W0612: Unused variable 'embedded_func_legb2' (unused-variable)
+examples\architecture\mistakes.py:68:4: C0103: Variable name "a" doesn't conform to snake_case naming style (invalid-name)
+examples\architecture\mistakes.py:69:4: C0103: Variable name "b" doesn't conform to snake_case naming style (invalid-name)
+examples\architecture\mistakes.py:73:4: C0103: Variable name "x" doesn't conform to snake_case naming style (invalid-name)
+examples\architecture\mistakes.py:74:4: C0103: Variable name "y" doesn't conform to snake_case naming style (invalid-name)
+examples\architecture\mistakes.py:75:4: C0103: Variable name "y" doesn't conform to snake_case naming style (invalid-name)
+examples\architecture\mistakes.py:78:4: C0103: Variable name "a" doesn't conform to snake_case naming style (invalid-name)
+examples\architecture\mistakes.py:79:4: C0103: Variable name "b" doesn't conform to snake_case naming style (invalid-name)
+examples\architecture\mistakes.py:83:4: C0103: Variable name "a" doesn't conform to snake_case naming style (invalid-name)
+examples\architecture\mistakes.py:84:4: C0103: Variable name "b" doesn't conform to snake_case naming style (invalid-name)
+examples\architecture\mistakes.py:88:4: C0103: Variable name "a" doesn't conform to snake_case naming style (invalid-name)
+examples\architecture\mistakes.py:89:4: C0103: Variable name "b" doesn't conform to snake_case naming style (invalid-name)
+examples\architecture\mistakes.py:94:0: C0103: Class name "A" doesn't conform to PascalCase naming style (invalid-name)
+examples\architecture\mistakes.py:95:4: C0104: Disallowed name "foo" (disallowed-name)
+examples\architecture\mistakes.py:98:0: C0103: Class name "B" doesn't conform to PascalCase naming style (invalid-name)
+examples\architecture\mistakes.py:102:0: C0103: Class name "C" doesn't conform to PascalCase naming style (invalid-name)
+examples\architecture\mistakes.py:114:0: W0102: Dangerous default value [] as argument (dangerous-default-value)
+examples\architecture\mistakes.py:114:0: C0104: Disallowed name "foo" (disallowed-name)
+examples\architecture\mistakes.py:119:0: C0104: Disallowed name "foo" (disallowed-name)
+examples\architecture\mistakes.py:133:8: C0103: Variable name "a" doesn't conform to snake_case naming style (invalid-name)
+examples\architecture\mistakes.py:133:11: C0103: Variable name "b" doesn't conform to snake_case naming style (invalid-name)
+examples\architecture\mistakes.py:149:0: C0104: Disallowed name "foo" (disallowed-name)
+examples\architecture\mistakes.py:156:0: C0104: Disallowed name "foo" (disallowed-name)
+examples\architecture\mistakes.py:158:11: C0121: Comparison 'foo == None' should be 'foo is None' (singleton-comparison)
+examples\architecture\mistakes.py:163:0: C0104: Disallowed name "foo" (disallowed-name)
+examples\architecture\mistakes.py:213:11: W0703: Catching too general exception Exception (broad-except)
 
 ------------------------------------------------------------------
-Your code has been rated at 7.70/10 (previous run: 7.73/10, -0.04)
+Your code has been rated at 7.81/10 (previous run: 7.81/10, +0.00)
 
-Exit code: 20
+Exit code: 22
 """
 
 
 r"""
 mypy
-Success: no issues found in 1 source file
+examples\architecture\mistakes.py:32: error: Need type annotation for 'local_var' (hint: "local_var: List[<type>] = ...")
+Found 1 error in 1 file (checked 1 source file)
 """
